@@ -643,7 +643,7 @@ class Mamba2Block(nn.Module):
         
         if config.d_intermediate != 0:
             self.norm2 = Mamba2RMSNorm(config.hidden_size, eps=config.layer_norm_epsilon)
-            self.mlp = GatedMLP(config.hidden_size)
+            self.mlp = GatedMLP(config.hidden_size, hidden_features=config.d_intermediate, out_features=config.hidden_size)
         else:
             self.mlp = None
 
