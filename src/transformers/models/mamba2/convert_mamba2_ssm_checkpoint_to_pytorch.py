@@ -65,6 +65,21 @@ def convert_ssm_config_to_hf_config(config_ssm: Dict, mamba2_model_dict: Dict) -
         vocab_size += pad_vocab_size_multiple - (vocab_size % pad_vocab_size_multiple)
     hf_config.vocab_size = vocab_size
 
+    # Set untouched parameters in the official implementation of MambaConfig: 
+    # Reference: https://github.com/state-spaces/mamba/blob/main/mamba_ssm/models/config_mamba.py
+    # The checks are to prevent conflicts. If the configurations always have these entries, then they can be removed
+    if "residual_in_fp32" in config_ssm:
+        hf_config.residual_in_fp32 = config_ssm["residual_in_fp32"]
+    if "rms_norm" in config_ssm:
+        hf_config.rms_norm = config_ssm["rms_norm"]
+
+    # Mamba & Attention hybrid model support
+    if "attn_layer_idx" in config_ssm:
+        hf_config.attn_layer_idx = config_ssm["attn_layer_idx"]
+        hf_config.attn_cfg = config_ssm["attn_cfg"]
+    if "d_intermediate" in config_ssm:
+        hf_config.d_intermediate = config_ssm["d_intermediate"]
+
     return hf_config
 
 

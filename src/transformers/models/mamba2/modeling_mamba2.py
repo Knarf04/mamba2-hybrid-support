@@ -43,6 +43,8 @@ logger = logging.get_logger(__name__)
 if is_mamba_2_ssm_available():
     from mamba_ssm.ops.triton.selective_state_update import selective_state_update
     from mamba_ssm.ops.triton.ssd_combined import mamba_chunk_scan_combined, mamba_split_conv1d_scan_combined
+    from mamba_ssm.modules.mha import MHA
+    from mamba_ssm.modules.mlp import GatedMLP
 else:
     selective_state_update = None
 
@@ -632,7 +634,18 @@ class Mamba2Block(nn.Module):
         self.layer_idx = layer_idx
         self.residual_in_fp32 = config.residual_in_fp32
         self.norm = Mamba2RMSNorm(config.hidden_size, eps=config.layer_norm_epsilon)
-        self.mixer = Mamba2Mixer(config, layer_idx=layer_idx)
+        self.is_mamba2 = not (layer_idx in config.attn_layer_idx)
+
+        if self.is_mamba2:
+            self.mixer = Mamba2Mixer(config, layer_idx=layer_idx)
+        else:
+            self.mixer = MHA(config.hidden_size)
+        
+        if config.d_intermediate != 0:
+            self.norm2 = Mamba2RMSNorm(config.hidden_size, eps=config.layer_norm_epsilon)
+            self.mlp = GatedMLP(config.hidden_size)
+        else:
+            self.mlp = None
 
     def forward(
         self,
@@ -646,9 +659,20 @@ class Mamba2Block(nn.Module):
         if self.residual_in_fp32:
             residual = residual.to(torch.float32)
 
-        hidden_states = self.mixer(
-            hidden_states, cache_params=cache_params, cache_position=cache_position, attention_mask=attention_mask
-        )
+        if self.is_mamba2:
+            hidden_states = self.mixer(
+                hidden_states, cache_params=cache_params, cache_position=cache_position, attention_mask=attention_mask
+            )
+        else:
+            hidden_states = self.mixer(hidden_states, **self.config.attn_cfg)
+
+        if self.mlp is not None:
+            residual = hidden_states + residual
+            hidden_states = self.norm2(residual.to(dtype=self.norm2.weight.dtype))
+            if self.residual_in_fp32:
+                residual = residual.to(torch.float32)
+            hidden_states = self.mlp(hidden_states)
+        
         hidden_states = residual + hidden_states
         return hidden_states
 

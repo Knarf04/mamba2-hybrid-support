@@ -89,7 +89,12 @@ class Mamba2Config(PretrainedConfig):
             Size of the chunks that will comprise the sequence.
         tie_word_embeddings (`bool`, *optional*, defaults to `False`):
             Whether to tie word embeddings or not.
-
+        attn_layer_idx (`list`, *optional*, defaults to []):
+            Index of layers that should use multi-head attention instead of mamba/
+        attn_cfg (`dict`, *optional*, defaults to {}):
+            Configuration of attention layers. 
+        d_intermediate (`int`, *optional*, defaults to 0):
+            Hidden size of the gated MLP layer used after the ssm. Skip the MLP if set to 0.
 
     Example:
 
@@ -138,6 +143,9 @@ class Mamba2Config(PretrainedConfig):
         rms_norm=True,
         chunk_size=256,
         tie_word_embeddings=False,
+        attn_layer_idx=[],
+        attn_cfg={},
+        d_intermediate=0,
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -171,6 +179,10 @@ class Mamba2Config(PretrainedConfig):
         self.time_step_limit = time_step_limit
         self.tie_word_embeddings = tie_word_embeddings
 
+        self.attn_layer_idx = attn_layer_idx
+        self.attn_cfg = attn_cfg
+        self.d_intermediate = d_intermediate
+
         super().__init__(
             bos_token_id=bos_token_id,
             eos_token_id=eos_token_id,
@@ -178,3 +190,6 @@ class Mamba2Config(PretrainedConfig):
             tie_word_embeddings=tie_word_embeddings,
             **kwargs,
         )
+
+
+
